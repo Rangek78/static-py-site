@@ -1,17 +1,17 @@
 from textnode import *
-import shutil, os
+import shutil, os, sys
 from block_markdown import *
 from pathlib import Path
 
 
 def main():
-    dummy = TextNode("This is some anchor text", TextType.LINK, "https://www.boot.dev")
-    print(dummy)
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
+    
 
     try:
-        clean_copy("static", "public", False)
+        clean_copy("static", "docs", False)
         # generate_page("content/index.md", "template.html", "public/index.html")
-        generate_pages_recursive("content", "template.html", "public")
+        generate_pages_recursive("content", "template.html", "docs", basepath)
     except Exception as e:
         print(e)
 
@@ -38,7 +38,7 @@ def clean_copy(src, dst, deleted=True):
             os.mkdir(dst_path)
             clean_copy(file_path, dst_path)
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
     with open(from_path) as f:
         md_src = f.read()
@@ -49,12 +49,14 @@ def generate_page(from_path, template_path, dest_path):
     title = extract_title(md_src)
     template = template.replace("{{ Title }}", title)
     template = template.replace("{{ Content }}", html)
+    template = template.replace('href="/', f'href="{basepath}')
+    template = template.replace('src="/', f'src="{basepath}')
     
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
     with open(dest_path, 'w') as f:
         f.write(template)
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     template = Path(template_path).read_text()
     for entry in Path(dir_path_content).iterdir():
         if entry.is_file() and entry.suffix == ".md":
@@ -62,14 +64,16 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
             html = markdown_to_html_node(md).to_html()
             title = extract_title(md)
             template = template.replace("{{ Title }}", title)
-            final_html = template.replace("{{ Content }}", html)
+            template = template.replace("{{ Content }}", html)
+            template = template.replace('href="/', f'href="{basepath}')
+            final_html = template.replace('src="/', f'src="{basepath}')
 
             file = Path(dest_dir_path) / Path(f"{entry.stem}.html")
             file.write_text(final_html)
         else:
             dst_path = Path(dest_dir_path) / Path(entry.name)
             dst_path.mkdir()
-            generate_pages_recursive(entry, template_path, dst_path)
+            generate_pages_recursive(entry, template_path, dst_path, basepath)
 
 main()
 
